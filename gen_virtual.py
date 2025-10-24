@@ -24,7 +24,7 @@ def parse_args() -> argparse.Namespace:
         "--client-model",
         default="default",
         choices=CounselClient.available_models(),
-        help="내담자 LLM 모델 (fast=gemini-2.5-flash, default=gemini-2.5-pro)",
+        help="내담자 LLM 모델 (fast=claude-haiku-4-5, default=claude-sonnet-4-5)",
     )
     parser.add_argument(
         "-t",
@@ -55,18 +55,20 @@ def main():
     print(f"\n{'='*60}")
     print(
         "가상 상담 세션 시작 "
-        f"(페르소나: {args.persona_name}, 상담자 모델: {args.model}, 내담자 모델: {args.client_model})"
+        f"(페르소나: {args.persona_name}, 상담자 모델: {args.model}, 내담자 모델: {args.client_model} -> {client.model_name})"
     )
     print(f"{'='*60}\n")
 
     therapist_turn = 0
     therapist_message = (args.greeting or "").strip()
+    hidden_prompt = ""
     if therapist_message:
         print(f"(Therapist cue) {therapist_message}\n")
     else:
-        therapist_message = (
+        hidden_prompt = (
             "상담자는 아직 말을 꺼내지 않았어. 내담자 스스로 상담을 시작하기 위한 인사와 고민 소개를 해줘."
         )
+        therapist_message = hidden_prompt
 
     for turn in range(1, args.turns + 1):
         client_message = client.say(therapist_message)
