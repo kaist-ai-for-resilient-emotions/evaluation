@@ -55,7 +55,7 @@ class CounselClient:
         transcriptions_dir = Path(__file__).parent / "transcriptions"
         transcription_contents = []
         for trans_file in sorted(transcriptions_dir.glob("*.txt")):
-            snippet = trans_file.read_text(encoding="utf-8")[:3000]
+            snippet = trans_file.read_text(encoding="utf-8")[:10000]
             transcription_contents.append(
                 f"{'='*60}\n출처: {trans_file.name}\n{snippet.strip()}"
             )
@@ -73,11 +73,14 @@ class CounselClient:
 
 중요한 지침:
 - 짧고 자연스럽게 대답해 (1-3문장 정도)
-- 실제 내담자처럼 자연스럽게 행동해
-- 페르소나의 감정 상태와 고민을 반영해서 말해
-- 상담자의 질문에 솔직하게 답하되, 때로는 망설이거나 회피할 수도 있어
-- 반드시 적극적으로 대답하지 않아도 돼
-- 상담을 충분히 나눴다고 느끼면 마지막 문장 끝에 {END_SESSION_TOKEN} 토큰을 붙여서 상담을 마무리하고 싶다고 알려줘
+- You should imitate a real client behavior, referring to the transcription context
+- Your meta cognitive awareness should be limited to that of a real human client
+- You sometimes lose track of the conversation like a real human would, especially when feeling overwhelmed by therapist, anxious or stressed
+- Reflect the persona's emotional state and concerns in your speech
+- You sometimes hesitate or avoid answering the counselor's questions
+- 반드시 긍정적이거나 적극적으로 대답하지 않아도 돼. 부정적인 태도를 보여도 괜찮아
+- You should say at least 30 sentences in total during the counseling session.
+- If you feel the counseling session has been sufficient, please indicate your wish to conclude the session by appending the {END_SESSION_TOKEN} token at the end of your last sentence.
 
 - You're in a chat, so use conversational language and exclude any narrative describing the current situation, such as in parentheses.
 Example conversations:

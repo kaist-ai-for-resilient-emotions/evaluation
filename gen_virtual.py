@@ -30,8 +30,8 @@ def parse_args() -> argparse.Namespace:
         "-t",
         "--turns",
         type=int,
-        default=20,
-        help="내담자 발화 횟수 (기본값: 20)",
+        default=50,
+        help="내담자 발화 횟수 (기본값: 50)",
     )
     parser.add_argument(
         "--greeting",
