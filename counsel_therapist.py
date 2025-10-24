@@ -99,15 +99,12 @@ class GeminiFastCounselTherapist(GeminiCounselTherapist):
         )
         self.chat = self.model.start_chat(history=[])
 
-class GPTSafetyCounselTherapist(CounselTherapist):
-    """OpenAI Responses API를 이용한 GPT 기반 상담자."""
+class OpenAIResponsesCounselTherapist(CounselTherapist):
+    """OpenAI Responses API를 공통적으로 사용하는 상담자 베이스 클래스."""
 
-    alias = "gpt-safety"
-    _PROMPT_REF = {
-        "id": "pmpt_68ad656b5cfc819597e147cf74fb77e707e439745a36603f",
-        "version": "6",
-    }
-    _INCLUDE = [
+    alias = None
+    PROMPT_REF: Dict[str, str] = {}
+    INCLUDE = [
         "reasoning.encrypted_content",
         "web_search_call.action.sources",
     ]
@@ -115,6 +112,9 @@ class GPTSafetyCounselTherapist(CounselTherapist):
     def __init__(self, openai_api_key: Optional[str] = None):
         if OpenAI is None:
             raise ImportError("openai 패키지가 설치되지 않았습니다. 'pip install openai' 후 다시 시도해주세요.")
+
+        if not self.PROMPT_REF:
+            raise ValueError("PROMPT_REF가 정의되지 않았습니다.")
 
         api_key = openai_api_key or os.getenv("OPENAI_API_KEY")
         if not api_key:
@@ -126,11 +126,11 @@ class GPTSafetyCounselTherapist(CounselTherapist):
     def say(self, message: str) -> str:
         self.history.append({"role": "user", "content": message})
         response = self.client.responses.create(
-            prompt=self._PROMPT_REF,
+            prompt=self.PROMPT_REF,
             input=self.history,
             reasoning={},
             store=True,
-            include=self._INCLUDE,
+            include=self.INCLUDE,
         )
 
         assistant_text = self._extract_openai_text(response)
@@ -157,3 +157,23 @@ class GPTSafetyCounselTherapist(CounselTherapist):
                             return text_val.strip()
 
         raise ValueError("OpenAI 응답에서 텍스트를 찾을 수 없습니다.")
+
+
+class GPTNormalCounselTherapist(OpenAIResponsesCounselTherapist):
+    """OpenAI Responses API (prompt v4)를 사용하는 상담자."""
+
+    alias = "gpt-normal"
+    PROMPT_REF = {
+        "id": "pmpt_68ad656b5cfc819597e147cf74fb77e707e439745a36603f",
+        "version": "4",
+    }
+
+
+class GPTSafetyCounselTherapist(OpenAIResponsesCounselTherapist):
+    """OpenAI Responses API (prompt v6)를 사용하는 상담자."""
+
+    alias = "gpt-safety"
+    PROMPT_REF = {
+        "id": "pmpt_68ad656b5cfc819597e147cf74fb77e707e439745a36603f",
+        "version": "6",
+    }
