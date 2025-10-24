@@ -103,8 +103,10 @@ def main() -> None:
 
         session_id = session["session_id"]
         cache_dir = args.out_cache
-        cache_data: Optional[Dict[str, object]] = None
+        validated_result: Optional[Dict[str, object]] = None
+        cached_scores: Optional[Dict[str, object]] = None
         cache_used = False
+        needs_cache_update = False
 
         logging.info(
             "Session %s: persona=%s, model=%s, turns=%d",
@@ -123,24 +125,28 @@ def main() -> None:
         if args.refresh_cache:
             logging.info("Session %s: refresh requested; bypassing cache", session_id)
         else:
-            cache_data = cache_load(cache_dir, session_id)
-            if cache_data is not None:
+            cache_entry = cache_load(cache_dir, session_id)
+            if cache_entry is not None:
                 try:
-                    cache_data = validate_schema(cache_data)
+                    validated_result = validate_schema(cache_entry["model_output"])
+                    cached_scores = cache_entry.get("scores")
                     cache_used = True
                     logging.info("Session %s: cache hit", session_id)
-                except ValueError as exc:
+                    if cached_scores is None:
+                        needs_cache_update = True
+                except (KeyError, ValueError) as exc:
                     logging.warning("Session %s: cache invalid (%s); ignoring", session_id, exc)
-                    cache_data = None
+                    validated_result = None
+                    cached_scores = None
             else:
                 logging.info("Session %s: cache miss", session_id)
 
-        if cache_data is None:
+        if validated_result is None:
             if args.offline_cache_only:
                 logging.error("Session %s: offline_cache_only set but cache missing", session_id)
                 continue
             try:
-                result = query_openai_with_validation(
+                validated_result = query_openai_with_validation(
                     session,
                     endpoint=args.endpoint,
                     model=args.model,
@@ -151,20 +157,22 @@ def main() -> None:
             except RuntimeError as exc:
                 logging.error("Session %s: OpenAI request failed (%s)", session_id, exc)
                 continue
-            cache_save(cache_dir, session_id, result)
-        else:
-            result = cache_data
-            logging.info("Session %s: using cached result", session_id)
-            cache_used = True
+            needs_cache_update = True
+            cache_used = False
 
         scores = normalize_scores(
-            ethics_subscores=result["ethics"],
-            qhp_pre=result["psychometrics"]["qhp9_pre"],
-            qhp_post=result["psychometrics"]["qhp9_post"],
-            srs_total=result["psychometrics"]["srs_total"],
+            ethics_subscores=validated_result["ethics"],
+            qhp_pre=validated_result["psychometrics"]["qhp9_pre"],
+            qhp_post=validated_result["psychometrics"]["qhp9_post"],
+            srs_total=validated_result["psychometrics"]["srs_total"],
             prefer_inline=args.prefer_inline,
             inline=session.get("inline_hints"),
         )
+        if cached_scores is None or cached_scores != scores:
+            needs_cache_update = True
+
+        if needs_cache_update:
+            cache_save(cache_dir, session_id, validated_result, scores)
 
         print_session_result(
             {
@@ -596,25 +604,40 @@ def validate_schema(obj: Dict[str, object]) -> Dict[str, Dict[str, object]]:
 
 
 def cache_load(cache_dir: str, session_id: str) -> Optional[Dict[str, object]]:
-    """Read a cached JSON response for the given session if it exists."""
+    """Read cached artifacts (model output and normalized scores) for a session if present."""
     path = Path(cache_dir) / f"{session_id}.json"
     if not path.exists():
         return None
     try:
         with path.open("r", encoding="utf-8") as handle:
-            return json.load(handle)
+            data = json.load(handle)
+            if isinstance(data, dict) and "model_output" in data:
+                return data
+            if isinstance(data, dict):
+                return {"model_output": data}
+            return None
     except (OSError, json.JSONDecodeError) as exc:
         logging.warning("Failed to load cache for %s: %s", session_id, exc)
         return None
 
 
-def cache_save(cache_dir: str, session_id: str, data: Dict[str, Dict[str, object]]) -> None:
-    """Persist the validated JSON response for reuse in later runs."""
+def cache_save(
+    cache_dir: str,
+    session_id: str,
+    model_output: Dict[str, object],
+    scores: Dict[str, object],
+) -> None:
+    """Persist the validated model output and normalized scores for reuse."""
     os.makedirs(cache_dir, exist_ok=True)
     path = Path(cache_dir) / f"{session_id}.json"
     try:
         with path.open("w", encoding="utf-8") as handle:
-            json.dump(data, handle, ensure_ascii=False, indent=2)
+            json.dump(
+                {"model_output": model_output, "scores": scores},
+                handle,
+                ensure_ascii=False,
+                indent=2,
+            )
         logging.info("Session %s: cache updated at %s", session_id, path)
     except OSError as exc:
         logging.error("Unable to write cache for %s: %s", session_id, exc)
@@ -636,7 +659,7 @@ def normalize_scores(
         ethics         : dict with normalized score, raw subscores, and notes.
         psychological  : dict with normalized score and the QHP-9 pre/post estimates used.
         usability      : dict with normalized score and SRS total value.
-        overall        : arithmetic mean of the three normalized scores.
+        overall        : dict containing the arithmetic mean of the three normalized scores.
     """
     inline = inline or {}
     qhp_pre_value = qhp_pre
@@ -726,7 +749,9 @@ def normalize_scores(
                 f"3. Aggregate estimates to SRS total={srs_value:g}."
             ),
         },
-        "overall": overall,
+        "overall": {
+            "score": overall,
+        },
     }
 
 
@@ -759,7 +784,7 @@ def print_session_result(meta: Dict[str, object], scores: Dict[str, object]) -> 
     print(f"  Basis: {usability['basis']}")
     if usability.get("notes"):
         print(f"  Notes: {usability['notes']}")
-    overall = scores["overall"]
+    overall = scores["overall"]["score"]
     print(f"Overall(mean): {overall:.2f}")
 
 
