@@ -1,7 +1,12 @@
-import google.generativeai as genai
 import os
 from pathlib import Path
 
+import google.generativeai as genai
+
+from env_utils import load_env
+
+
+load_env()
 
 class CounselClient:
     def __init__(self, persona_name, api_key=None):
@@ -55,7 +60,7 @@ class CounselClient:
 - 한국어로 대답해"""
 
         self.model = genai.GenerativeModel(
-            model_name="gemini-2.5-pro",
+            model_name="gemini-2.5-flash",
             system_instruction=system_instruction
         )
 
