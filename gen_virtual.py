@@ -29,8 +29,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--greeting",
-        default="안녕하세요. 오늘 어떤 이야기를 나누고 싶으신가요?",
-        help="상담자의 첫 인사 문장",
+        default="안녕하세요. 오늘 어떤 이야기를 나누고 싶으신가요? 편하게 먼저 이야기해 주세요.",
+        help="상담자가 내담자에게 전달하는 첫 메시지. 빈 문자열이면 내담자가 스스로 대화를 시작.",
     )
     return parser.parse_args()
 
@@ -50,16 +50,18 @@ def main():
     print(f"가상 상담 세션 시작 (페르소나: {args.persona_name}, 상담자 모델: {args.model})")
     print(f"{'='*60}\n")
 
-    therapist_turn = 1
-    therapist_message = args.greeting
-    print(f"T{therapist_turn}: {therapist_message}\n")
+    therapist_turn = 0
+    therapist_message = (args.greeting or "").strip()
+    if therapist_message:
+        print(f"(Therapist cue) {therapist_message}\n")
+    else:
+        therapist_message = (
+            "상담자는 아직 말을 꺼내지 않았어. 내담자 스스로 상담을 시작하기 위한 인사와 고민 소개를 해줘."
+        )
 
     for turn in range(1, args.turns + 1):
         client_message = client.say(therapist_message)
         print(f"C{turn}: {client_message}\n")
-
-        if turn == args.turns:
-            break
 
         therapist_turn += 1
         therapist_message = therapist.say(client_message)
