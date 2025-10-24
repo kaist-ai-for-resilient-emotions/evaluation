@@ -78,6 +78,27 @@ class GeminiCounselTherapist(CounselTherapist):
         return response.text
 
 
+class GeminiFastCounselTherapist(GeminiCounselTherapist):
+    """Gemini 2.5 Fast 모델을 사용하는 상담자."""
+
+    alias = "gemini-fast"
+
+    def __init__(self, api_key: Optional[str] = None):
+        if api_key is None:
+            api_key = os.getenv("GEMINI_API_KEY")
+        if not api_key:
+            raise ValueError("Gemini API 키를 설정해주세요. (환경변수 GEMINI_API_KEY)")
+
+        genai.configure(api_key=api_key)
+        self.model = genai.GenerativeModel(
+            model_name="gemini-2.5-flash",
+            system_instruction=(
+                "너는 내담자를 공감적으로 돕는 전문 심리 상담자 역할을 연기해야 해. "
+                "공감하고 열린 질문을 짧고 자연스럽게 건네."
+            ),
+        )
+        self.chat = self.model.start_chat(history=[])
+
 class GPTSafetyCounselTherapist(CounselTherapist):
     """OpenAI Responses API를 이용한 GPT 기반 상담자."""
 
