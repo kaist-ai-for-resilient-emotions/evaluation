@@ -100,21 +100,14 @@ class GeminiFastCounselTherapist(GeminiCounselTherapist):
         self.chat = self.model.start_chat(history=[])
 
 class OpenAIResponsesCounselTherapist(CounselTherapist):
-    """OpenAI Responses API를 공통적으로 사용하는 상담자 베이스 클래스."""
+    """OpenAI Responses API를 사용하는 상담자 베이스 클래스."""
 
     alias = None
-    PROMPT_REF: Dict[str, str] = {}
-    INCLUDE = [
-        "reasoning.encrypted_content",
-        "web_search_call.action.sources",
-    ]
+    include: List[str] = []
 
     def __init__(self, openai_api_key: Optional[str] = None):
         if OpenAI is None:
             raise ImportError("openai 패키지가 설치되지 않았습니다. 'pip install openai' 후 다시 시도해주세요.")
-
-        if not self.PROMPT_REF:
-            raise ValueError("PROMPT_REF가 정의되지 않았습니다.")
 
         api_key = openai_api_key or os.getenv("OPENAI_API_KEY")
         if not api_key:
@@ -123,16 +116,19 @@ class OpenAIResponsesCounselTherapist(CounselTherapist):
         self.client = OpenAI(api_key=api_key)
         self.history: List[Dict[str, str]] = []
 
+    def _request_kwargs(self) -> Dict:
+        """Responses API 호출에 사용할 매개변수."""
+        raise NotImplementedError
+
     def say(self, message: str) -> str:
         self.history.append({"role": "user", "content": message})
-        response = self.client.responses.create(
-            prompt=self.PROMPT_REF,
-            input=self.history,
-            reasoning={},
-            store=True,
-            include=self.INCLUDE,
-        )
+        request_kwargs = self._request_kwargs()
+        request_kwargs.setdefault("input", self.history)
+        request_kwargs.setdefault("store", True)
+        if self.include and "include" not in request_kwargs:
+            request_kwargs["include"] = self.include
 
+        response = self.client.responses.create(**request_kwargs)
         assistant_text = self._extract_openai_text(response)
         self.history.append({"role": "assistant", "content": assistant_text})
         return assistant_text
@@ -159,7 +155,25 @@ class OpenAIResponsesCounselTherapist(CounselTherapist):
         raise ValueError("OpenAI 응답에서 텍스트를 찾을 수 없습니다.")
 
 
-class GPTNormalCounselTherapist(OpenAIResponsesCounselTherapist):
+class StoredPromptCounselTherapist(OpenAIResponsesCounselTherapist):
+    """저장된 프롬프트를 사용하는 OpenAI Responses 상담자."""
+
+    PROMPT_REF: Dict[str, str] = {}
+    include = [
+        "reasoning.encrypted_content",
+        "web_search_call.action.sources",
+    ]
+
+    def _request_kwargs(self) -> Dict:
+        if not self.PROMPT_REF:
+            raise ValueError("PROMPT_REF가 정의되지 않았습니다.")
+        return {
+            "prompt": self.PROMPT_REF,
+            "reasoning": {},
+        }
+
+
+class GPTNormalCounselTherapist(StoredPromptCounselTherapist):
     """OpenAI Responses API (prompt v4)를 사용하는 상담자."""
 
     alias = "gpt-normal"
@@ -169,7 +183,7 @@ class GPTNormalCounselTherapist(OpenAIResponsesCounselTherapist):
     }
 
 
-class GPTSafetyCounselTherapist(OpenAIResponsesCounselTherapist):
+class GPTSafetyCounselTherapist(StoredPromptCounselTherapist):
     """OpenAI Responses API (prompt v6)를 사용하는 상담자."""
 
     alias = "gpt-safety"
@@ -177,3 +191,21 @@ class GPTSafetyCounselTherapist(OpenAIResponsesCounselTherapist):
         "id": "pmpt_68ad656b5cfc819597e147cf74fb77e707e439745a36603f",
         "version": "6",
     }
+
+
+class GPTChatCounselTherapist(OpenAIResponsesCounselTherapist):
+    """gpt-5-chat-latest 모델을 사용하는 상담자."""
+
+    alias = "gpt-chat"
+    include = ["web_search_call.action.sources"]
+
+    def _request_kwargs(self) -> Dict:
+        return {
+            "model": "gpt-5-chat-latest",
+            "text": {},
+            "reasoning": {},
+            "tools": [],
+            "temperature": 1,
+            "max_output_tokens": 4096,
+            "top_p": 1,
+        }
