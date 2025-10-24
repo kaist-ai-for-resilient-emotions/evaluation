@@ -21,6 +21,12 @@ def parse_args() -> argparse.Namespace:
         help="상담자 LLM 모델 (기본값: gemini-default)",
     )
     parser.add_argument(
+        "--client-model",
+        default="default",
+        choices=CounselClient.available_models(),
+        help="내담자 LLM 모델 (fast=gemini-2.5-flash, default=gemini-2.5-pro)",
+    )
+    parser.add_argument(
         "-t",
         "--turns",
         type=int,
@@ -44,10 +50,13 @@ def main():
         sys.exit(1)
 
     therapist = CounselTherapist.create(args.model)
-    client = CounselClient(args.persona_name)
+    client = CounselClient(args.persona_name, model_alias=args.client_model)
 
     print(f"\n{'='*60}")
-    print(f"가상 상담 세션 시작 (페르소나: {args.persona_name}, 상담자 모델: {args.model})")
+    print(
+        "가상 상담 세션 시작 "
+        f"(페르소나: {args.persona_name}, 상담자 모델: {args.model}, 내담자 모델: {args.client_model})"
+    )
     print(f"{'='*60}\n")
 
     therapist_turn = 0

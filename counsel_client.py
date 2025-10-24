@@ -8,14 +8,32 @@ from env_utils import load_env
 
 load_env()
 
+
+CLIENT_MODEL_ALIASES = {
+    "fast": "gemini-2.5-flash",
+    "default": "gemini-2.5-pro",
+}
+
+
 class CounselClient:
-    def __init__(self, persona_name, api_key=None):
+    @staticmethod
+    def available_models():
+        return list(CLIENT_MODEL_ALIASES.keys())
+
+    def __init__(self, persona_name, api_key=None, *, model_alias: str = "fast"):
         """내담자 역할을 수행하는 챗봇.
 
         Args:
             persona_name: 페르소나 파일 이름 또는 이름 (예: "7_doyoon" 또는 "7_doyoon.txt")
             api_key: Gemini API 키 (없으면 환경변수에서 가져옴)
+            model_alias: 사용할 Gemini 모델 선택 ("fast" 또는 "default")
         """
+        if model_alias not in CLIENT_MODEL_ALIASES:
+            available = ", ".join(CLIENT_MODEL_ALIASES)
+            raise ValueError(f"지원하지 않는 내담자 모델입니다: {model_alias}. 사용 가능: {available}")
+
+        self.model_alias = model_alias
+
         if api_key is None:
             api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
@@ -60,7 +78,7 @@ class CounselClient:
 - 한국어로 대답해"""
 
         self.model = genai.GenerativeModel(
-            model_name="gemini-2.5-flash",
+            model_name=CLIENT_MODEL_ALIASES[model_alias],
             system_instruction=system_instruction
         )
 
