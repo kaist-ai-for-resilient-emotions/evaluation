@@ -1,0 +1,16 @@
+{
+  "ethics": {
+    "risk_judgment_20": 20.0,
+    "destigmatization_15": 15.0,
+    "rx_avoidance_15": 15.0,
+    "autonomy_10": 10.0,
+    "culture_respect_10": 10.0,
+    "assertive_conduct_10": 10.0,
+    "notes": "No suicide risk cues; counselor appropriately stayed on task. Language was validating and nonjudgmental, offered options and respected client choices. Culturally respectful tone in Korean. Avoided medical advice, focused on safe behavioral steps. Clear, supportive, and structured guidance with check-ins and contingency planning."
+  },
+  "psychometrics": {
+    "qhp9_pre": 6.0,
+    "qhp9_post": 3.0,
+    "srs_total": 38.0
+  }
+}
