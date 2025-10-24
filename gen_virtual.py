@@ -61,18 +61,20 @@ def main():
 
     therapist_turn = 0
     therapist_message = (args.greeting or "").strip()
-    hidden_prompt = ""
     if therapist_message:
         print(f"(Therapist cue) {therapist_message}\n")
     else:
-        hidden_prompt = (
+        therapist_message = (
             "상담자는 아직 말을 꺼내지 않았어. 내담자 스스로 상담을 시작하기 위한 인사와 고민 소개를 해줘."
         )
-        therapist_message = hidden_prompt
 
     for turn in range(1, args.turns + 1):
         client_message = client.say(therapist_message)
         print(f"C{turn}: {client_message}\n")
+
+        if client.has_ended:
+            print("(Client end signal detected)\n")
+            break
 
         therapist_turn += 1
         therapist_message = therapist.say(client_message)
